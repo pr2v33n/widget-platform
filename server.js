@@ -11,7 +11,7 @@ app.use(express.static(__dirname));
 
 // ─── MONGOOSE DATABASE CONNECTION ───
 // We use process.env.MONGO_URI so your secret password stays hidden and safe in the cloud settings
-const mongoURI = process.env.MONGO_URI || "mongodb+srv://pr2v33n:2019@0086@cluster0.b8cfob4.mongodb.net/studio-platform?retryWrites=true&w=majority&appName=Cluster0";
+const mongoURI = process.env.MONGO_URI || "mongodb+srv://pr2v33n:2019%400086@cluster0.b8cfob4.mongodb.net/studio-platform?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(mongoURI)
     .then(() => console.log('📁 Linked successfully to Cloud MongoDB Atlas!'))
