@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Component Studio Dashboard</title>
+    <style>
+        :root { --accent: #0071e3; --bg: #f5f5f7; --card: #ffffff; --border: #d2d2d7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar Styling */
+        .sidebar { width: 420px; background: #1e1e1e; color: #f4f4f4; display: flex; flex-direction: column; border-right: 1px solid #333; }
+        .sidebar-header { padding: 24px; border-bottom: 1px solid #333; }
+        .code-area { flex-grow: 1; padding: 15px; background: #151515; }
+        textarea { width: 100%; height: 100%; background: transparent; color: #9cdcfe; border: none; font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 1.5; outline: none; resize: none; }
+        .action-pane { padding: 20px; display: flex; flex-direction: column; gap: 10px; background: #1e1e1e; border-top: 1px solid #333; }
+        
+        /* Main Workspace Stage */
+        .stage { flex-grow: 1; display: flex; flex-direction: column; padding: 40px; align-items: center; overflow-y: auto; }
+        .widget-card { background: var(--card); border-radius: 18px; box-shadow: 0 12px 30px rgba(0,0,0,0.06); width: 100%; max-width: 640px; padding: 30px; box-sizing: border-box; }
+        
+        /* UI Components */
+        .btn-primary { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; font-size: 14px; transition: background 0.2s; }
+        .btn-primary:hover { background: #0077ed; }
+        .btn-secondary { background: #3a3a3c; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 500; font-size: 14px; transition: background 0.2s; }
+        .btn-secondary:hover { background: #48484a; }
+        
+        .controls-wrapper { background: #fafafa; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid var(--border); }
+        .slider-row { display: flex; align-items: center; gap: 15px; margin-bottom: 12px; font-size: 14px; color: #1d1d1f; font-weight: 500; }
+        .slider-row label { width: 90px; }
+        input[type="range"] { flex-grow: 1; accent-color: var(--accent); }
+
+        iframe { width: 100%; height: 320px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2 style="margin:0; font-size: 18px; letter-spacing: -0.5px;">Image Layout Studio</h2>
+            <p style="font-size: 12px; color: #8a8a8e; margin: 5px 0 0 0;">Alter JSON state rules to modify variables instantly</p>
+        </div>
+        <div class="code-area">
+            <textarea id="configInput">{
+  "name": "Image Filter Processor",
+  "imageUrl": "https://picsum.photos/id/15/400/300",
+  "defaultBrightness": 0,
+  "defaultContrast": 0
+}</textarea>
+        </div>
+        <div class="action-pane">
+            <button class="btn-primary" onclick="rebuildInterfaceFromJSON()">Sync Engine Graphics</button>
+            <button class="btn-secondary" onclick="saveComponentToCloud()">Save & Generate URL Link</button>
+        </div>
+    </div>
+
+    <div class="stage">
+        <div class="widget-card">
+            <h1 id="ui-name" style="margin:0 0 20px 0; font-size: 24px; color: #1d1d1f; letter-spacing: -0.5px;">Workspace Idle</h1>
+            <div class="controls-wrapper" id="ui-controls">
+                <span style="color:#8a8a8e; font-size: 14px;">Press "Sync Engine Graphics" to initialize controls...</span>
+            </div>
+            <iframe id="displaySandbox" sandbox="allow-scripts" title="Visual Output Stage"></iframe>
+        </div>
+    </div>
+
+<script>
+// 1. LIFECYCLE MANAGEMENT: Checks database routing rules on initial app boot
+window.onload = async function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const widgetId = urlParams.get('id');
+    
+    if (widgetId) {
+        try {
+            const res = await fetch(`/api/widgets/${widgetId}`);
+            if (!res.ok) throw new Error("Component profile not found");
+            const data = await res.json();
+            
+            document.getElementById('configInput').value = JSON.stringify(data.configData, null, 2);
+            rebuildInterfaceFromJSON();
+        } catch (err) {
+            alert("Error pulling remote dataset schema: " + err.message);
+            rebuildInterfaceFromJSON();
+        }
+    } else {
+        rebuildInterfaceFromJSON();
+    }
+};
+
+// 2. INTERFACE COMPILER: Set up master adjustments
+function rebuildInterfaceFromJSON() {
+    try {
+        const config = JSON.parse(document.getElementById('configInput').value);
+        document.getElementById('ui-name').innerText = config.name;
+
+        const controls = document.getElementById('ui-controls');
+        controls.innerHTML = `
+            <div class="slider-row">
+                <label>Global Light</label>
+                <input type="range" id="paramBright" min="-100" max="100" step="1" value="0" oninput="broadcastFiltersToSandbox()">
+            </div>
+            <div class="slider-row">
+                <label>Layer Contrast</label>
+                <input type="range" id="paramContrast" min="-100" max="100" step="1" value="0" oninput="broadcastFiltersToSandbox()">
+            </div>
+            <p style="font-size:11px; color:#8a8a8e; margin:5px 0 0 0;">✨ You can now click and drag the shapes on the right canvas!</p>
+        `;
+
+        // The advanced interactive layout editor sandbox engine script
+        const sandboxedGraphicsHTML = `
+            <html>
+            <body style="margin:0; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#1e1e1e; user-select:none;">
+                <canvas id="stageCanvas" style="cursor: grab;"></canvas>
+                <script>
+                    const canvas = document.getElementById('stageCanvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    let layersConfig = ${JSON.stringify(config.layers || [])};
+                    
+                    let globalBright = 0;
+                    let globalContrast = 0;
+                    
+                    let selectedLayer = null;
+                    let isDragging = false;
+                    let startX, startY;
+
+                    // Set standard text layer height approximations for bounds checking
+                    layersConfig.forEach(l => {
+                        if (l.type === 'text') {
+                            l.width = l.width || 250;
+                            l.height = l.height || 30;
+                        }
+                    });
+
+                    // ─── MOUSE EVENT LISTENERS FOR CLICKS & DRAGS ───
+
+                    canvas.addEventListener('mousedown', (e) => {
+                        const rect = canvas.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left;
+                        const mouseY = e.clientY - rect.top;
+
+                        selectedLayer = null;
+
+                        // Loop BACKWARDS (front-to-back) to select top element first
+                        for (let i = layersConfig.length - 1; i >= 0; i--) {
+                            const layer = layersConfig[i];
+                            
+                            // Adjust text origin logic safely for box checks
+                            const clickY = layer.type === 'text' ? layer.y - layer.height : layer.y;
+
+                            if (mouseX >= layer.x && mouseX <= layer.x + layer.width &&
+                                mouseY >= clickY && mouseY <= clickY + layer.height) {
+                                
+                                selectedLayer = layer;
+                                isDragging = true;
+                                canvas.style.cursor = 'grabbing';
+                                
+                                // Record exactly where inside the layer we clicked
+                                startX = mouseX - layer.x;
+                                startY = mouseY - layer.y;
+                                break;
+                            }
+                        }
+                    });
+
+                    canvas.addEventListener('mousemove', (e) => {
+                        if (!isDragging || !selectedLayer) return;
+
+                        const rect = canvas.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left;
+                        const mouseY = e.clientY - rect.top;
+
+                        // Calculate and update new positions
+                        selectedLayer.x = mouseX - startX;
+                        selectedLayer.y = mouseY - startY;
+
+                        renderComposition();
+
+                        // BROADCAST TO PARENT: Alert the main editor page that positions shifted
+                        window.parent.postMessage({
+                            type: 'LAYER_MOVED',
+                            updatedLayers: layersConfig
+                        }, '*');
+                    });
+
+                    window.addEventListener('mouseup', () => {
+                        isDragging = false;
+                        canvas.style.cursor = 'grab';
+                    });
+
+                    // ─── END MOUSE LOGIC ───
+
+                    window.onmessage = (e) => {
+                        if (e.data.type === 'FILTER_SYNC') {
+                            globalBright = parseInt(e.data.brightness);
+                            globalContrast = parseInt(e.data.contrast);
+                            renderComposition();
+                        }
+                    };
+
+                    function renderComposition() {
+                        canvas.width = 500;
+                        canvas.height = 400;
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                        layersConfig.forEach(layer => {
+                            ctx.save();
+                            if (layer.type === 'shape') {
+                                ctx.fillStyle = layer.color;
+                                ctx.fillRect(layer.x, layer.y, layer.width, layer.height);
+                            } 
+                            else if (layer.type === 'text') {
+                                ctx.fillStyle = layer.color;
+                                ctx.font = layer.font || "24px sans-serif";
+                                ctx.fillText(layer.text, layer.x, layer.y);
+                            }
+                            ctx.restore();
+                        });
+
+                        try {
+                            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            const pixels = imgData.data;
+                            const factor = (259 * (globalContrast + 255)) / (255 * (259 - globalContrast));
+
+                            for (let i = 0; i < pixels.length; i += 4) {
+                                if (pixels[i+3] === 0) continue;
+                                pixels[i]   += globalBright;
+                                pixels[i+1] += globalBright;
+                                pixels[i+2] += globalBright;
+                                pixels[i]   = factor * (pixels[i] - 128) + 128;
+                                pixels[i+1] = factor * (pixels[i+1] - 128) + 128;
+                                pixels[i+2] = factor * (pixels[i+2] - 128) + 128;
+                                pixels[i]   = Math.min(255, Math.max(0, pixels[i]));
+                                pixels[i+1] = Math.min(255, Math.max(0, pixels[i+1]));
+                                pixels[i+2] = Math.min(255, Math.max(0, pixels[i+2]));
+                            }
+                            ctx.putImageData(imgData, 0, 0);
+                        } catch (err) {}
+                    }
+                    renderComposition();
+                <\/script>
+            </body>
+            </html>
+        `;
+        document.getElementById('displaySandbox').srcdoc = sandboxedGraphicsHTML;
+    } catch (e) {
+        alert("JSON Syntax Formatting Error: " + e.message);
+    }
+}
+
+// Listen for messages coming UP from the sandbox iframe drag handlers
+window.addEventListener('message', (e) => {
+    if (e.data.type === 'LAYER_MOVED') {
+        const currentTextarea = document.getElementById('configInput');
+        try {
+            const currentConfig = JSON.parse(currentTextarea.value);
+            // Replace old layer values with the new coordinates from the drag action
+            currentConfig.layers = e.data.updatedLayers;
+            
+            // Format coordinates inside text box cleanly
+            currentTextarea.value = JSON.stringify(currentConfig, null, 2);
+        } catch(err) {}
+    }
+});
+
+function broadcastFiltersToSandbox() {
+    const msg = {
+        type: 'FILTER_SYNC',
+        brightness: document.getElementById('paramBright').value,
+        contrast: document.getElementById('paramContrast').value
+    };
+    document.getElementById('displaySandbox').contentWindow.postMessage(msg, '*');
+}
+
+async function saveComponentToCloud() {
+    try {
+        const rawConfigText = document.getElementById('configInput').value;
+        const parsedConfig = JSON.parse(rawConfigText);
+
+        const response = await fetch('/api/widgets/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: parsedConfig.name,
+                configData: parsedConfig
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            const generatedUrl = window.location.origin + result.shareUrl;
+            navigator.clipboard.writeText(generatedUrl).then(() => {
+                alert("🎉 Success! Your share link is copied to your clipboard:\n\n" + generatedUrl);
+            }).catch(() => {
+                alert("Saved! Here is your link:\n\n" + generatedUrl);
+            });
+        } else {
+            alert("Database engine write fault: " + result.error);
+        }
+    } catch (err) {
+        alert("Failed to compile valid configuration packet context: " + err.message);
+    }
+}
+</script>
+</body>
+</html>
